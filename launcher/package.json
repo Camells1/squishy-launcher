@@ -40,8 +40,17 @@
       "!**/tools/**"
     ],
     "win": {
-      "target": "dir",
+      "target": "nsis",
       "icon": "resources/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Squishy Launcher",
+      "artifactName": "SquishyLauncher-Setup-${version}.exe"
     }
   },
   "repository": "github:Camells1/squishy-launcher"
