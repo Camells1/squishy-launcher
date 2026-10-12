@@ -1,0 +1,48 @@
+{
+  "name": "squishy-launcher",
+  "productName": "Squishy Launcher",
+  "version": "1.0.0",
+  "description": "Squishy Launcher - Minecraft launcher with Modrinth mod search",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win dir"
+  },
+  "author": "Squishy",
+  "license": "MIT",
+  "dependencies": {
+    "@fontsource/anton": "^5.3.0",
+    "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
+    "electron": "^33.4.11",
+    "gsap": "^3.12.5",
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.squishy.launcher",
+    "productName": "Squishy Launcher",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "core/**",
+      "ui/**",
+      "resources/**",
+      "node_modules/**",
+      "package.json",
+      "!**/tools/**"
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "resources/icon.png"
+    }
+  },
+  "repository": "github:Camells1/squishy-launcher"
+}

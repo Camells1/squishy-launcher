@@ -1,0 +1,16 @@
+{
+	"schemaVersion": 1,
+	"id": "squishy-home",
+	"version": "${version}",
+	"name": "Squishy Home",
+	"description": "Replaces the vanilla title screen with the Squishy Launcher home screen.",
+	"authors": ["Squishy"],
+	"license": "MIT",
+	"environment": "client",
+	"mixins": ["squishy-home.mixins.json"],
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"minecraft": "~1.21.11",
+		"java": ">=21"
+	}
+}

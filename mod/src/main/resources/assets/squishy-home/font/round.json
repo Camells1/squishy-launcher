@@ -1,0 +1,5 @@
+{
+	"providers": [
+		{ "type": "ttf", "file": "squishy-home:fredoka.ttf", "shift": [0, 0], "size": 11.0, "oversample": 8.0 }
+	]
+}
