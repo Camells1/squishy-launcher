@@ -9,3 +9,5 @@ build/
 run/
 mod/build/
 mod26/build/
+build-log.txt
+*.zip
