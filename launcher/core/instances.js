@@ -35,9 +35,14 @@ function syncHome(inst) {
   const name = /^26./.test(inst.mc) ? 'squishy-home-26.jar' : (inst.mc === '1.21.11' ? 'squishy-home-1.21.11.jar' : null);
   if (!name) return;
   const src = path.join(__dirname, '..', 'resources', name);
-  if (!fs.existsSync(src)) return;
-  fs.mkdirSync(modsDirOf(inst), { recursive: true });
-  fs.copyFileSync(src, path.join(modsDirOf(inst), HOME_JAR));
+  try {
+    // read + write rather than copyFile: the jar lives inside app.asar when packaged
+    const bytes = fs.readFileSync(src);
+    fs.mkdirSync(modsDirOf(inst), { recursive: true });
+    fs.writeFileSync(path.join(modsDirOf(inst), HOME_JAR), bytes);
+  } catch (e) {
+    console.error('home mod not installed:', e.message);
+  }
 }
 
 function remove(id) {

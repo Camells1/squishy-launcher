@@ -71,4 +71,21 @@ async function install(projectId, { gameVersion, loader = 'fabric', modsDir, see
   return out;
 }
 
-module.exports = { search, install, bestVersion, download, get };
+/** Resource packs and shaders: no loader, and if nothing is tagged for this version, take the newest so it can be converted. */
+async function installPack(projectId, { gameVersion, destDir }) {
+  let exact = true;
+  let list = await get(`${API}/project/${projectId}/version?` + new URLSearchParams({ game_versions: JSON.stringify([gameVersion]) }));
+  if (!list.length) {
+    exact = false;
+    list = await get(`${API}/project/${projectId}/version`);
+  }
+  if (!list.length) throw new Error('No downloadable version');
+  const rank = { release: 0, beta: 1, alpha: 2 };
+  list.sort((a, b) => (rank[a.version_type] - rank[b.version_type]) || (new Date(b.date_published) - new Date(a.date_published)));
+  const file = list[0].files.find(f => f.primary) || list[0].files[0];
+  const dest = path.join(destDir, path.basename(file.filename));
+  if (!fs.existsSync(dest)) await download(file.url, dest);
+  return { file: path.basename(file.filename), exact };
+}
+
+module.exports = { search, install, installPack, bestVersion, download, get };

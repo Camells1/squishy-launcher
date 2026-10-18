@@ -73,6 +73,7 @@ const K = (() => {
         n = Math.max(0, Math.min(10 ** digits - 1, Math.round(n)));
         if (n === last) return;
         last = n;
+        if (!reduce) gsap.fromTo(el, { scale: 1.1, filter: 'brightness(1.5)' }, { scale: 1, filter: 'brightness(1)', duration: 0.6, ease: 'elastic.out(1,0.4)', transformOrigin: '0% 100%' });
         const str = String(n).padStart(digits, '0');
         cols.forEach((col, i) => gsap.to(col, {
           yPercent: -Number(str[i]) * 10, duration: reduce ? 0 : 0.6, ease: 'expo.out', overwrite: true,

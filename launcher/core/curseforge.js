@@ -7,6 +7,7 @@ const API = 'https://api.curseforge.com/v1';
 const GAME_MINECRAFT = 432;
 const CLASS_MODS = 6;
 const LOADER_FABRIC = 4;
+const CLASS = { mod: 6, resourcepack: 12, shader: 6552 };
 
 function key() {
   const k = store.load().curseforgeKey;
@@ -25,12 +26,12 @@ async function call(pathname, opts = {}) {
 
 const SORT = { relevance: 1, follows: 2, newest: 11, updated: 3, downloads: 6 };
 
-async function search({ query = '', gameVersion, index = 'relevance', offset = 0, limit = 20 }) {
+async function search({ query = '', gameVersion, index = 'relevance', offset = 0, limit = 20, kind = 'mod' }) {
   const qs = new URLSearchParams({
-    gameId: String(GAME_MINECRAFT), classId: String(CLASS_MODS), searchFilter: query,
+    gameId: String(GAME_MINECRAFT), classId: String(CLASS[kind] || CLASS_MODS), searchFilter: query,
     sortField: String(SORT[index] || 2), sortOrder: 'desc', index: String(offset), pageSize: String(limit),
-    modLoaderType: String(LOADER_FABRIC),
   });
+  if (kind === 'mod') qs.set('modLoaderType', String(LOADER_FABRIC));
   if (gameVersion) qs.set('gameVersion', gameVersion);
   const j = await call(`/mods/search?${qs}`);
   return {
@@ -81,4 +82,19 @@ async function resolveFiles(entries) {
   });
 }
 
-module.exports = { search, install, resolveFiles };
+/** Texture packs and shaders: any file for the version, newest first, saved straight into destDir. */
+async function installPack(projectId, { gameVersion, destDir }) {
+  let exact = true;
+  let j = await call(`/mods/${projectId}/files?` + new URLSearchParams({ gameVersion, pageSize: '20' }));
+  if (!j.data.length) {
+    exact = false;
+    j = await call(`/mods/${projectId}/files?pageSize=20`);
+  }
+  const f = j.data.sort((a, b) => new Date(b.fileDate) - new Date(a.fileDate))[0];
+  if (!f) throw new Error('No downloadable file');
+  const dest = path.join(destDir, path.basename(f.fileName));
+  if (!fs.existsSync(dest)) await download(cdnUrl(f), dest);
+  return { file: path.basename(f.fileName), exact };
+}
+
+module.exports = { search, install, installPack, resolveFiles };

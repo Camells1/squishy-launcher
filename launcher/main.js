@@ -8,6 +8,7 @@ const launcher = require('./core/launch');
 const importer = require('./core/importer');
 const modpack = require('./core/modpack');
 const cf = require('./core/curseforge');
+const packs = require('./core/packs');
 
 let win;
 
@@ -76,18 +77,37 @@ handle('account:microsoft', async () => {
 });
 handle('account:signout', () => { const c = store.load(); c.account = null; store.save(); return state(); });
 
+const MR_TYPE = { mod: 'mod', resourcepack: 'resourcepack', shader: 'shader' };
 handle('mods:search', (q) => {
   const i = inst.find(q.instance);
-  const args = { ...q, gameVersion: i ? i.mc : undefined, loader: i ? i.loader : 'fabric' };
+  const kind = MR_TYPE[q.kind] ? q.kind : 'mod';
+  const args = { ...q, kind, projectType: MR_TYPE[kind], gameVersion: i ? i.mc : undefined, loader: i ? i.loader : 'fabric' };
   return q.source === 'curseforge' ? cf.search(args) : mr.search(args);
 });
-handle('mods:install', async (instanceId, projectId, source) => {
+handle('mods:install', async (instanceId, projectId, source, kind = 'mod') => {
   const i = inst.find(instanceId);
   if (!i) throw new Error('Pick an instance first');
+  if (kind === 'resourcepack' || kind === 'shader') {
+    const destDir = packs.dirFor(i, kind);
+    require('fs').mkdirSync(destDir, { recursive: true });
+    const r = source === 'curseforge' ? await cf.installPack(projectId, { gameVersion: i.mc, destDir }) : await mr.installPack(projectId, { gameVersion: i.mc, destDir });
+    let converted = false;
+    if (kind === 'resourcepack') {
+      try { packs.convert(instanceId, r.file); converted = !r.exact; } catch { /* not convertible, leave as downloaded */ }
+    }
+    return { file: r.file, exact: r.exact, converted };
+  }
   if (i.loader !== 'fabric') throw new Error('Mods need a Fabric instance');
   if (source === 'curseforge') return cf.install(projectId, { gameVersion: i.mc, modsDir: inst.modsDirOf(i) });
   return mr.install(projectId, { gameVersion: i.mc, loader: i.loader, modsDir: inst.modsDirOf(i) });
 });
+
+// ---- resource packs / shaders on disk
+handle('packs:list', (id, kind) => packs.list(id, kind));
+handle('packs:convert', (id, name) => { packs.convert(id, name); return packs.list(id); });
+handle('packs:convertAll', (id) => packs.convertAll(id));
+handle('packs:toggle', (id, name) => packs.toggle(id, name));
+handle('packs:remove', (id, name, kind) => packs.remove(id, name, kind));
 
 // ---- import: existing folders, loose jars, modpacks
 handle('import:detect', () => importer.detect());

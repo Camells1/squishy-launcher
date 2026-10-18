@@ -30,7 +30,7 @@ const MAIN_VERSIONS = [
 
 const PAGES = [
   { id: 'play', label: 'Play' },
-  { id: 'mods', label: 'Mods' },
+  { id: 'mods', label: 'Browse' },
   { id: 'library', label: 'Library' },
   { id: 'settings', label: 'Settings' },
 ];
@@ -41,7 +41,7 @@ const S = {
   titleChars: [],
   launch: { active: false, status: '', pct: 0, type: '', log: [], error: '' },
   imp: { parts: { mods: true, config: true, settings: true, resourcepacks: true, shaderpacks: true, saves: false }, sources: null, msg: '' },
-  mods: { q: '', source: 'modrinth', sort: 'relevance', tab: 'search', results: null, total: 0, loading: false, busy: {}, done: {} },
+  mods: { q: '', kind: 'mod', source: 'modrinth', sort: 'relevance', tab: 'search', results: null, total: 0, loading: false, busy: {}, done: {} },
   releases: null,
   token: 0,
 };
@@ -65,16 +65,17 @@ function buildRail() {
     h('b', {}, S.st.username.toUpperCase()),
     h('div', {}, S.st.microsoft ? 'MICROSOFT' : 'OFFLINE'));
   rail.append(foot);
+  Fx.navPill(S.page, true);
 }
 
 async function setTitle(text) {
   const el = $('#title');
   const old = S.titleChars;
-  await K.exit(old);
+  await Fx.titleExit(old);
   const chars = K.split(el, text);
   chars.forEach((c, i) => { if (i % 5 === 3) c.classList.add('alt'); });
   S.titleChars = chars;
-  K.enter(chars);
+  Fx.titleEnter(chars);
 }
 
 async function go(id) {
@@ -84,16 +85,16 @@ async function go(id) {
   document.querySelectorAll('.nav').forEach(n => n.classList.toggle('on', n.dataset.id === id));
   const page = $('#page');
   const label = PAGES.find(p => p.id === id).label;
+  Fx.sweep();
+  Fx.navPill(id);
   await Promise.all([
     setTitle(label),
-    K.exit([...page.children]).then(() => {}),
+    Fx.pageExit([...page.children]),
   ]);
   if (token !== S.token) return;
   page.textContent = '';
   PAGE_RENDER[id](page);
-  if (!K.reduce) {
-    gsap.from([...page.children], { y: 36, opacity: 0, duration: 0.7, stagger: 0.07, ease: 'expo.out', clearProps: 'all' });
-  }
+  Fx.pageEnter([...page.children]);
 }
 
 async function refresh(patchState) {
@@ -131,8 +132,6 @@ function renderPlay(page) {
   play.append(h('span', { class: 'sub' }, `${inst.mc} / ${inst.loader.toUpperCase()}`));
   play.disabled = S.launch.active;
   play.addEventListener('click', startLaunch);
-  play.addEventListener('mouseenter', () => !K.reduce && gsap.to(play, { scaleY: 0.94, scaleX: 1.015, duration: 0.18, ease: 'power2.out' }));
-  play.addEventListener('mouseleave', () => !K.reduce && gsap.to(play, { scaleY: 1, scaleX: 1, duration: 0.6, ease: 'elastic.out(1.2,0.35)' }));
 
   const statWrap = h('div', { style: 'margin-top:28px' },
     h('div', { class: 'label', id: 'statusLbl' }, S.launch.status || 'Ready'),
@@ -203,33 +202,49 @@ squishy.on('closed', code => {
   renderLaunch();
 });
 
-// ---------------------------------------------------------------- mods
+// ---------------------------------------------------------------- browse (mods, texture packs, shaders)
 
 let searchTimer = null;
+const KINDS = [
+  { id: 'mod', label: 'Mods', ph: 'Search mods' },
+  { id: 'resourcepack', label: 'Texture packs', ph: 'Search texture packs' },
+  { id: 'shader', label: 'Shaders', ph: 'Search shaders' },
+];
+const kindOf = () => KINDS.find(k => k.id === S.mods.kind) || KINDS[0];
+
+function instanceSelect(inst, onchange) {
+  return h('select', { class: 'inp', 'aria-label': 'Target instance', onchange },
+    S.st.instances.map(i => h('option', { value: i.id, selected: i.id === inst.id }, `${i.name} (${i.mc})`)));
+}
 
 function renderMods(page) {
   const inst = selectedInstance();
   if (!inst) { page.append(h('p', { class: 'empty' }, 'Create an instance in the Library first.')); return; }
   const M = S.mods;
-  if (inst.loader !== 'fabric') {
-    page.append(
-      h('p', { class: 'empty' }, inst.mc + ' has no Fabric, so no Modrinth mods. Pick a Fabric instance:'),
-      h('select', { class: 'inp', onchange: async (e) => { await refresh(await squishy.selectInstance(e.target.value)); go('mods'); } },
-        S.st.instances.map(i => h('option', { value: i.id, selected: i.id === inst.id }, i.name + ' (' + i.mc + ')'))));
+  const kind = kindOf();
+  const switchInstance = async (e) => {
+    await refresh(await squishy.selectInstance(e.target.value));
+    M.results = null; M.done = {}; go('mods');
+  };
+
+  const kinds = h('div', { class: 'kinds' }, KINDS.map(k => h('button', {
+    class: 'kind' + (k.id === M.kind ? ' on' : ''),
+    onclick: () => { M.kind = k.id; M.results = null; M.done = {}; M.tab = 'search'; go('mods'); },
+  }, k.label)));
+
+  if (kind.id === 'mod' && inst.loader !== 'fabric') {
+    page.append(kinds,
+      h('p', { class: 'empty' }, inst.mc + ' has no Fabric, so no mods. Texture packs and shaders still work. Or pick a Fabric instance:'),
+      instanceSelect(inst, switchInstance));
     return;
   }
 
-  const q = h('input', { class: 'q', placeholder: 'SEARCH MODRINTH', value: M.q, spellcheck: 'false', 'aria-label': 'Search mods' });
+  const q = h('input', { class: 'q', placeholder: kind.ph, value: M.q, spellcheck: 'false', 'aria-label': kind.ph });
   q.addEventListener('input', () => {
     M.q = q.value;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(() => runSearch(), 320);
   });
-
-  const target = h('select', { class: 'inp', 'aria-label': 'Target instance', onchange: async (e) => {
-    await refresh(await squishy.selectInstance(e.target.value));
-    M.results = null; M.done = {}; go('mods');
-  } }, S.st.instances.map(i => h('option', { value: i.id, selected: i.id === inst.id }, `${i.name} (${i.mc})`)));
 
   const sorts = ['relevance', 'downloads', 'follows', 'newest', 'updated'];
   const tabs = h('div', { class: 'tabs' },
@@ -239,16 +254,18 @@ function renderMods(page) {
       class: 'chip' + (M.source === src ? ' on' : ''),
       onclick: () => { M.source = src; M.results = null; M.done = {}; go('mods'); },
     }, src)) : null,
-    M.tab === 'search' ? sorts.map(s => h('button', { class: 'chip' + (M.sort === s ? ' on' : ''), onclick: () => { M.sort = s; runSearch(); markSort(); } }, s)) : null,
-    target);
+    M.tab === 'search' ? sorts.map(s => h('button', {
+      class: 'chip sort' + (M.sort === s ? ' on' : ''), 'data-sort': s,
+      onclick: () => { M.sort = s; runSearch(); markSort(); },
+    }, s)) : null,
+    instanceSelect(inst, switchInstance));
 
-  page.append(h('div', { class: 'search-row' }, q), tabs, h('div', { id: 'results' }));
+  page.append(kinds, h('div', { class: 'search-row' }, M.tab === 'search' ? q : null), tabs, h('div', { id: 'results' }));
   if (M.tab === 'installed') renderInstalled(inst);
   else if (M.results) paintResults(); else runSearch();
 
   function markSort() {
-    const idx = sorts.indexOf(M.sort);
-    page.querySelectorAll('.tabs .chip').forEach((c, i) => { if (i >= 4 && i < 4 + sorts.length) c.classList.toggle('on', i - 4 === idx); });
+    page.querySelectorAll('.chip.sort').forEach(c => c.classList.toggle('on', c.dataset.sort === M.sort));
   }
 }
 
@@ -258,10 +275,10 @@ async function runSearch() {
   if (!inst || M.tab !== 'search') return;
   M.loading = true;
   const box = $('#results');
-  if (box && !M.results) box.replaceChildren(h('p', { class: 'empty' }, 'Searching...'));
+  if (box && !M.results) Fx.skeleton(box);
   const stamp = (runSearch.n = (runSearch.n || 0) + 1);
   try {
-    const r = await squishy.search({ query: M.q, index: M.sort, instance: inst.id, limit: 20, source: M.source });
+    const r = await squishy.search({ query: M.q, index: M.sort, instance: inst.id, limit: 20, source: M.source, kind: M.kind });
     if (stamp !== runSearch.n) return;
     M.results = r.hits; M.total = r.total;
   } catch (e) {
@@ -285,22 +302,27 @@ function paintResults(animate) {
   if (!box) return;
   const M = S.mods;
   const inst = selectedInstance();
+  const kind = kindOf();
   box.textContent = '';
-  if (!M.results.length) { box.append(h('p', { class: 'empty' }, `Nothing for ${inst.mc} on Fabric.`)); return; }
+  if (!M.results.length) { box.append(h('p', { class: 'empty' }, `Nothing for ${inst.mc}${kind.id === 'mod' ? ' on Fabric' : ''}. Try another search or source.`)); return; }
   const rows = M.results.map(m => {
     const state = M.done[m.id];
-    const btn = h('button', { class: 'btn' + (state ? ' done' : '') }, h('span', {}, state ? 'INSTALLED' : (M.busy[m.id] ? 'WORKING' : 'INSTALL')));
+    const btn = h('button', { class: 'btn' + (state ? ' done' : '') }, h('span', {}, state ? 'INSTALLED' : 'INSTALL'));
     btn.disabled = !!state || !!M.busy[m.id];
     btn.addEventListener('click', async () => {
-      M.busy[m.id] = true; btn.disabled = true; btn.firstChild.textContent = 'WORKING';
+      M.busy[m.id] = true; btn.disabled = true; btn.classList.add('working');
       try {
-        await squishy.install(inst.id, m.id, M.source);
-        M.done[m.id] = true; btn.classList.add('done'); btn.firstChild.textContent = 'INSTALLED';
-        if (!K.reduce) gsap.fromTo(btn, { scale: 1.15 }, { scale: 1, duration: 0.6, ease: 'elastic.out(1,0.4)' });
+        const res = await squishy.install(inst.id, m.id, M.source, M.kind);
+        M.done[m.id] = true;
+        Fx.success(btn);
+        if (res && res.converted) Fx.toast(`${m.title}: converted to the ${inst.mc} pack format`, 'warn');
+        else Fx.toast(`${m.title} installed`);
       } catch (e) {
-        btn.disabled = false; btn.firstChild.textContent = 'RETRY';
+        btn.disabled = false; btn.classList.remove('working');
+        const label = btn.querySelector('span'); if (label) label.textContent = 'RETRY';
         const err = btn.closest('.row').querySelector('.ds');
         err.textContent = e.message; err.style.color = 'var(--orange)';
+        Fx.toast(e.message, 'err');
       } finally { delete M.busy[m.id]; }
     });
     return h('div', { class: 'row' },
@@ -312,23 +334,77 @@ function paintResults(animate) {
       h('div', { class: 'act' }, btn, h('span', { class: 'dl' }, `${fmt(m.downloads)} DOWNLOADS`)));
   });
   box.append(...rows);
-  if (animate && !K.reduce) gsap.from(rows, { y: 28, opacity: 0, duration: 0.55, stagger: 0.04, ease: 'expo.out', clearProps: 'all' });
+  if (animate) Fx.rows(rows);
 }
 
 async function renderInstalled(inst) {
+  const kind = kindOf();
+  if (kind.id === 'resourcepack') return renderPacks(inst);
+  if (kind.id === 'shader') return renderShaders(inst);
   const box = $('#results');
   const mods = await squishy.mods(inst.id);
   box.textContent = '';
   if (!mods.length) { box.append(h('p', { class: 'empty' }, 'No mods installed.')); return; }
-  for (const m of mods) {
-    box.append(h('div', { class: 'mod-line' + (m.enabled ? '' : ' off') },
-      h('span', { class: 'f' }, m.file.replace('.disabled', '')),
-      h('span', { class: 'label' }, (m.size / 1048576).toFixed(1) + ' MB'),
-      m.locked ? h('span', { class: 'label' }, 'PRELOADED') : [
-        h('button', { class: 'btn ghost', onclick: async () => { await squishy.toggleMod(inst.id, m.file); renderInstalled(inst); } }, h('span', {}, m.enabled ? 'DISABLE' : 'ENABLE')),
-        h('button', { class: 'btn ghost', onclick: async () => { await squishy.removeMod(inst.id, m.file); renderInstalled(inst); } }, h('span', {}, 'REMOVE')),
-      ]));
+  const lines = mods.map(m => h('div', { class: 'mod-line' + (m.enabled ? '' : ' off') },
+    h('span', { class: 'f' }, m.file.replace('.disabled', '')),
+    h('span', { class: 'label' }, (m.size / 1048576).toFixed(1) + ' MB'),
+    m.locked ? h('span', { class: 'label' }, 'PRELOADED') : [
+      h('button', { class: 'btn ghost', onclick: async () => { await squishy.toggleMod(inst.id, m.file); renderInstalled(inst); } }, h('span', {}, m.enabled ? 'DISABLE' : 'ENABLE')),
+      h('button', { class: 'btn ghost', onclick: async () => { await squishy.removeMod(inst.id, m.file); renderInstalled(inst); } }, h('span', {}, 'REMOVE')),
+    ]));
+  box.append(...lines);
+  Fx.rows(lines);
+}
+
+/** Texture packs already in the instance, with one-click conversion to this Minecraft version. */
+async function renderPacks(inst) {
+  const box = $('#results');
+  let list;
+  try { list = await squishy.listPacks(inst.id, 'resourcepack'); }
+  catch (e) { box.replaceChildren(h('p', { class: 'err' }, e.message)); return; }
+  box.textContent = '';
+  if (!list.length) {
+    box.append(h('p', { class: 'empty' }, 'No texture packs yet. Search above, or import them from another launcher in the Library.'));
+    return;
   }
+  const need = list.filter(p => p.valid && !p.compatible).length;
+  const head = h('div', { class: 'pack-head' },
+    h('span', { class: 'label' }, `${list.length} pack${list.length === 1 ? '' : 's'} for ${inst.mc}`),
+    need ? h('button', { class: 'btn', onclick: async () => {
+      const r = await squishy.convertAllPacks(inst.id);
+      Fx.toast(`Converted ${r.converted.length} pack${r.converted.length === 1 ? '' : 's'} to ${inst.mc}`, 'warn');
+      renderPacks(inst);
+    } }, h('span', {}, `CONVERT ${need} TO ${inst.mc}`)) : null);
+  const lines = list.map(p => {
+    const badge = !p.valid ? h('span', { class: 'badge bad' }, 'No pack.mcmeta')
+      : p.compatible ? h('span', { class: 'badge ok' }, 'Ready')
+        : h('span', { class: 'badge warn' }, `Made for format ${p.formats[0]}`);
+    return h('div', { class: 'mod-line' + (p.enabled ? '' : ' off') },
+      h('span', { class: 'f' }, p.name.replace(/\.zip$/i, '')),
+      badge,
+      p.valid && !p.compatible ? h('button', { class: 'btn', onclick: async () => {
+        try { await squishy.convertPack(inst.id, p.name); Fx.toast(`${p.name.replace(/\.zip$/i, '')} converted`, 'warn'); } catch (e) { Fx.toast(e.message, 'err'); }
+        renderPacks(inst);
+      } }, h('span', {}, 'CONVERT')) : null,
+      h('button', { class: 'btn ghost', onclick: async () => { await squishy.togglePack(inst.id, p.name); renderPacks(inst); } }, h('span', {}, p.enabled ? 'DISABLE' : 'ENABLE')),
+      h('button', { class: 'btn ghost', onclick: async () => { await squishy.removePack(inst.id, p.name, 'resourcepack'); renderPacks(inst); } }, h('span', {}, 'REMOVE')));
+  });
+  box.append(head, ...lines);
+  Fx.rows(lines);
+}
+
+async function renderShaders(inst) {
+  const box = $('#results');
+  const list = await squishy.listPacks(inst.id, 'shader');
+  box.textContent = '';
+  box.append(h('p', { class: 'empty', style: 'padding:6px 0 14px' }, 'Shader packs need Iris (Fabric) or OptiFine to run. Search Mods for Iris first.'));
+  if (!list.length) { box.append(h('p', { class: 'empty' }, 'No shader packs installed.')); return; }
+  const lines = list.map(p => h('div', { class: 'mod-line' },
+    h('span', { class: 'f' }, p.name.replace(/\.zip$/i, '')),
+    h('span', { class: 'label' }, (p.size / 1048576).toFixed(1) + ' MB'),
+    h('button', { class: 'btn ghost', onclick: async () => { await squishy.removePack(inst.id, p.name, 'shader'); renderShaders(inst); } }, h('span', {}, 'REMOVE'))));
+  box.append(...lines);
+  Fx.rows(lines);
 }
 
 // ---------------------------------------------------------------- library
@@ -446,7 +522,8 @@ function importCard() {
           try {
             say('Copying...');
             const r = await squishy.runImport(inst.id, src.dir, chosen);
-            say('Imported: ' + Object.entries(r.copied).map(([k, n]) => n + ' ' + k).join(', '));
+            say('Imported: ' + Object.entries(r.copied).map(([k, n]) => n + ' ' + k).join(', ') + (r.converted ? '. ' + r.converted + ' texture pack(s) converted to ' + inst.mc : ''));
+            if (r.converted) Fx.toast(r.converted + ' texture pack(s) converted to ' + inst.mc, 'warn');
           } catch (e) { say(e.message); }
         } }, h('span', {}, 'IMPORT'))));
     }
@@ -504,12 +581,17 @@ const PAGE_RENDER = { play: renderPlay, mods: renderMods, library: renderLibrary
 document.querySelectorAll('[data-win]').forEach(b => b.addEventListener('click', () => squishy.win(b.dataset.win)));
 
 (async function boot() {
-  let st = await squishy.state();
-  if (!st.instances.length) {
-    st = await squishy.createInstance({ name: 'Squishy 1.21.11', mc: '1.21.11', loader: 'fabric' });
+  try {
+    Fx.init();
+    let st = await squishy.state();
+    if (!st.instances.length) {
+      st = await squishy.createInstance({ name: 'Squishy 1.21.11', mc: '1.21.11', loader: 'fabric' });
+    }
+    S.st = st;
+    buildRail();
+    if (!K.reduce) gsap.from('.nav', { x: -80, opacity: 0, rotationY: -40, transformPerspective: 600, duration: 1, stagger: 0.09, ease: 'back.out(1.6)', clearProps: 'transform,opacity' });
+    go('play');
+  } catch (e) {
+    $('#page').append(h('p', { class: 'err', style: 'user-select:text;font-size:14px' }, 'Could not start: ' + (e && e.message ? e.message : e)));
   }
-  S.st = st;
-  buildRail();
-  if (!K.reduce) gsap.from('.nav', { x: -60, opacity: 0, duration: 0.8, stagger: 0.08, ease: 'expo.out', clearProps: 'all' });
-  go('play');
 })();

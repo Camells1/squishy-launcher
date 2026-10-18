@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const inst = require('./instances');
+const packs = require('./packs');
 
 const APPDATA = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
 
@@ -101,7 +102,12 @@ function run(instanceId, srcDir, parts) {
     }
     copied[part] = n;
   }
-  return { copied };
+  // packs from other launchers often target another Minecraft version: fix their metadata for this one
+  let converted = [];
+  if (parts.includes('resourcepacks')) {
+    try { converted = packs.convertAll(instanceId).converted; } catch { /* leave them as copied */ }
+  }
+  return { copied, converted: converted.length };
 }
 
 /** Copy loose jar files straight into an instance's mods folder. */
