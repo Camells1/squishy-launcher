@@ -294,3 +294,8 @@ body { background: transparent !important; }
 @media (prefers-reduced-motion: reduce) {
   .big-btn, .big-btn::after, .bar-fill2::after, .rail-foot::before, .sk { animation: none; }
 }
+
+/* update banner */
+.update { -webkit-app-region: no-drag; margin-right: 10px; padding: 5px 14px; border-radius: 99px; font-size: 12px; font-weight: 800; letter-spacing: .06em; background: var(--purple); color: #fff; display: none; }
+.update.show { display: inline-flex; align-items: center; }
+.update.ready { background: var(--orange); color: var(--ink); cursor: pointer; }

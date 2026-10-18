@@ -6,12 +6,16 @@ A Minecraft launcher with Modrinth + CurseForge mod search, kinetic-type UI, and
 
 ## Play (Windows)
 
-1. Download `SquishyLauncher-Setup-1.0.0.exe` from the [Releases](../../releases) page and run it. Pick an install folder, and it adds a desktop and Start menu shortcut.
+1. Download the latest `SquishyLauncher-Setup-x.y.z.exe` from the [Releases](../../releases) page and run it. Pick an install folder, and it adds a desktop and Start menu shortcut.
    (Prefer no install? `SquishyLauncher-win.zip` is a portable copy: unzip and run `Squishy Launcher.exe`.)
 2. Open Squishy Launcher from the shortcut.
 3. Pick an instance on **Play** and hit the big button. First launch downloads Minecraft, Fabric, and Java if you don't have it, so give it a few minutes.
 
 Offline username is under **Settings**. You can also sign in with Microsoft there.
+
+### Updates
+
+The installed app checks GitHub releases on startup, downloads new versions in the background and installs them by itself (it waits if a game is running). Versions before 1.2.0 have no updater, so install 1.2.0 once by hand.
 
 ## Run from source
 

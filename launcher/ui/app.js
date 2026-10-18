@@ -576,6 +576,21 @@ function renderSettings(page) {
 
 const PAGE_RENDER = { play: renderPlay, mods: renderMods, library: renderLibrary, settings: renderSettings };
 
+// ---------------------------------------------------------------- updates
+
+(() => {
+  const el = document.getElementById('update');
+  squishy.on('update', u => {
+    el.className = 'update show';
+    if (u.state === 'available') el.textContent = 'Update ' + u.version + ' found';
+    else if (u.state === 'downloading') el.textContent = 'Updating ' + u.percent + '%';
+    else if (u.state === 'installing') el.textContent = 'Installing ' + u.version + '...';
+    else if (u.state === 'ready') { el.textContent = 'Restart to update to ' + u.version; el.classList.add('ready'); }
+    else el.className = 'update';
+  });
+  el.addEventListener('click', () => { if (el.classList.contains('ready')) squishy.installUpdate(); });
+})();
+
 // ---------------------------------------------------------------- boot
 
 document.querySelectorAll('[data-win]').forEach(b => b.addEventListener('click', () => squishy.win(b.dataset.win)));

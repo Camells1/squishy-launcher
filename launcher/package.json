@@ -1,7 +1,7 @@
 {
   "name": "squishy-launcher",
   "productName": "Squishy Launcher",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Squishy Launcher - Minecraft launcher with Modrinth mod search",
   "main": "main.js",
   "scripts": {
@@ -16,6 +16,7 @@
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/nunito": "^5.3.0",
     "adm-zip": "^0.6.1",
+    "electron-updater": "^6.8.9",
     "gsap": "^3.12.5",
     "minecraft-launcher-core": "^3.18.2",
     "msmc": "^5.0.5"
@@ -52,6 +53,11 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Squishy Launcher",
       "artifactName": "SquishyLauncher-Setup-${version}.exe"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Camells1",
+      "repo": "squishy-launcher"
     }
   },
   "repository": "github:Camells1/squishy-launcher"
